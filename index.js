@@ -1,13 +1,18 @@
 const express = require('express');
 const multer = require('multer');
+const fs = require('fs');
 const { exec } = require('child_process');
 const path = require('path');
 
 const app = express();
-const port = process.env.PORT || 3000;
 const upload = multer({ storage: multer.memoryStorage() });  // Use memory storage
 
 const modelPath = path.resolve(__dirname, 'models', 'ggml-medium.bin');  // Ensure this path is correct
+
+// Root URL route
+app.get('/', (req, res) => {
+    res.send('Whisper API is running.');
+});
 
 app.post('/transcribe', upload.single('audio'), (req, res) => {
     const audioBuffer = req.file.buffer;
@@ -44,8 +49,8 @@ app.post('/transcribe', upload.single('audio'), (req, res) => {
     });
 });
 
-app.listen(port || process.env.port, () => {
-    console.log(`Server is running on port ${port}`);
+app.listen(3000, () => {
+    console.log('Server is running on port 3000');
 });
 
 module.exports = app;
