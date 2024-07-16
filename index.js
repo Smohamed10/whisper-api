@@ -44,6 +44,8 @@ app.post('/transcribe', upload.single('audio'), (req, res) => {
     });
 });
 
-app.listen(port, () => {
+app.listen(port || process.env.port, () => {
     console.log(`Server is running on port ${port}`);
 });
+
+module.exports = app;
