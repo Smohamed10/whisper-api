@@ -6,7 +6,7 @@ const WhisperManager = require('./WhisperManager');
 const app = express();
 const port = process.env.PORT || 3000;
 
-const upload = multer({ dest: 'uploads/' });
+const upload = multer({ storage: multer.memoryStorage() }); // Use memory storage
 
 // Initialize Whisper-like model
 const whisperManager = new WhisperManager('models/ggml-medium.bin', 'ar', false); // Adjust parameters as needed
