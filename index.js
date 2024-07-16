@@ -1,56 +1,43 @@
 const express = require('express');
 const multer = require('multer');
-const fs = require('fs');
-const { exec } = require('child_process');
 const path = require('path');
+const WhisperManager = require('./WhisperManager');
 
 const app = express();
-const upload = multer({ storage: multer.memoryStorage() });  // Use memory storage
+const port = process.env.PORT || 3000;
 
-const modelPath = path.resolve(__dirname, 'models', 'ggml-medium.bin');  // Ensure this path is correct
+const upload = multer({ dest: 'uploads/' });
+
+// Initialize Whisper-like model
+const whisperManager = new WhisperManager('models/ggml-medium.bin', 'ar', false); // Adjust parameters as needed
 
 // Root URL route
 app.get('/', (req, res) => {
     res.send('Whisper API is running.');
 });
 
-app.post('/transcribe', upload.single('audio'), (req, res) => {
-    const audioBuffer = req.file.buffer;
-    const audioFilePath = '/tmp/audio.wav';  // Temp path for storing audio file in memory
+async function initializeWhisper() {
+    await whisperManager.init();
+}
 
-    // Write the audio buffer to a temporary file
-    fs.writeFile(audioFilePath, audioBuffer, (err) => {
-        if (err) {
-            console.error(`Error writing audio file: ${err.message}`);
-            return res.status(500).json({ error: 'Failed to write audio file' });
-        }
+// Handle POST request to transcribe audio
+app.post('/transcribe', upload.single('audio'), async (req, res) => {
+    const audioFilePath = req.file.path;
 
-        // Run Whisper model inference
-        const command = `path/to/whisper --model ${modelPath} --file ${audioFilePath}`;
-        exec(command, (error, stdout, stderr) => {
-            if (error) {
-                console.error(`Error: ${error.message}`);
-                return res.status(500).json({ error: 'Transcription failed' });
-            }
+    try {
+        const transcription = await whisperManager.getTextFromAudio(audioFilePath);
+        res.json({ transcription });
+    } catch (error) {
+        console.error('Error transcribing audio:', error);
+        res.status(500).json({ error: 'Transcription failed' });
+    }
+});
 
-            if (stderr) {
-                console.error(`Stderr: ${stderr}`);
-            }
-
-            // Clean up the temporary file
-            fs.unlink(audioFilePath, (err) => {
-                if (err) {
-                    console.error(`Error deleting temporary audio file: ${err.message}`);
-                }
-            });
-
-            res.json({ transcription: stdout.trim() });
-        });
+// Start the server
+app.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
+    initializeWhisper().catch(error => {
+        console.error('Failed to initialize Whisper-like model:', error);
+        process.exit(1);
     });
 });
-
-app.listen(3000, () => {
-    console.log('Server is running on port 3000');
-});
-
-module.exports = app;
