@@ -1,1 +1,3 @@
-Flask==2.0.1
+Flask
+tqdm
+git+https://github.com/openai/whisper.git

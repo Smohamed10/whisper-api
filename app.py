@@ -1,49 +1,57 @@
-# app.py
-from flask import Flask, request, jsonify
-import subprocess
 import os
+import whisper
+from flask import Flask, request, jsonify
+from tqdm import tqdm
 
 app = Flask(__name__)
 
-# Function to run whisper_like_script.py using subprocess
-def run_whisper_script(audioFilePath, modelPath, language, translateToEnglish):
-    command = f'python3 whisper_like_script.py {audioFilePath} {modelPath} {language} {translateToEnglish}'
-    try:
-        result = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        transcription = result.stdout.decode('utf-8').strip()
-        return transcription
+# Set up Whisper model and output folder
+model = whisper.load_model("medium")
+output_folder = "transcriptions"  # Adjust this path as per your setup
 
-    except subprocess.CalledProcessError as e:
-        error_message = f'Error transcribing audio: {e.stderr.decode("utf-8").strip()}'
-        return error_message
-
-# Route to handle transcription requests
 @app.route('/transcribe', methods=['POST'])
-def transcribe_audio():
-    data = request.get_json()
-
-    # Extract parameters from JSON request
-    audioFilePath = data.get('audioFilePath')
-    modelPath = data.get('modelPath')
-    language = data.get('language')
-    translateToEnglish = data.get('translateToEnglish')
-
-    # Perform transcription using WhisperManager
-    from whisper_manager import WhisperManager
-    manager = WhisperManager()
-    manager.modelPath = modelPath
-    manager.language = language
-    manager.translateToEnglish = translateToEnglish
-
+def transcribe():
     try:
-        # Assuming asynchronous handling for Flask with asyncio
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        transcription = loop.run_until_complete(manager.transcribe_audio(audioFilePath))
+        # Ensure the file is part of the request
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file part'}), 400
+        
+        file = request.files['file']
+        
+        # Ensure a file is selected
+        if file.filename == '':
+            return jsonify({'error': 'No selected file'}), 400
+        
+        # Save the file temporarily
+        temp_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+        file.save(temp_path)
+        
+        # Transcribe the audio file using Whisper
+        result = model.transcribe(temp_path, language="ar", fp16=False, verbose=True)
+        transcription = result['text']
+        
+        # Prepare filename for saving transcription
+        filename_no_ext = os.path.splitext(file.filename)[0]
+        output_filepath = os.path.join(output_folder, filename_no_ext + '.txt')
+        
+        # Ensure the output directory exists
+        os.makedirs(output_folder, exist_ok=True)
+        
+        # Save transcription to a text file
+        with open(output_filepath, 'w', encoding='utf-8') as f:
+            f.write(transcription)
+        
+        # Return the transcription as JSON response
         return jsonify({'transcription': transcription})
-
+    
     except Exception as e:
-        return jsonify({'error': f'Error transcribing audio: {str(e)}'}), 500
+        return jsonify({'error': str(e)}), 500
+    
+    finally:
+        # Clean up the temporary file
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
 
 if __name__ == '__main__':
+    app.config['UPLOAD_FOLDER'] = 'temp'  # Define your upload folder
     app.run(debug=True)
