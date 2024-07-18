@@ -6,7 +6,7 @@ from tqdm import tqdm
 app = Flask(__name__)
 
 # Set up Whisper model and output folder
-model = whisper.load_model("medium")
+model = whisper.load_model("tiny")
 app.config['UPLOAD_FOLDER'] = 'temp'  # Define your upload folder
 output_folder = "transcriptions"  # Adjust this path as per your setup
 
