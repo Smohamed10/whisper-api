@@ -2,3 +2,4 @@ Flask
 tqdm
 git+https://github.com/openai/whisper.git
 gunicorn
+ffmpeg
