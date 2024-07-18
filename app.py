@@ -1,7 +1,6 @@
 import os
 import whisper
 from flask import Flask, request, jsonify
-from tqdm import tqdm
 
 app = Flask(__name__)
 
@@ -11,6 +10,7 @@ output_folder = "transcriptions"  # Adjust this path as per your setup
 
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
+    temp_path = None  # Initialize temp_path to ensure it's defined
     try:
         # Ensure the file is part of the request
         if 'file' not in request.files:
@@ -26,6 +26,9 @@ def transcribe():
         temp_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
         file.save(temp_path)
         
+        # Ensure the output directory exists
+        os.makedirs(output_folder, exist_ok=True)
+        
         # Transcribe the audio file using Whisper
         result = model.transcribe(temp_path, language="ar", fp16=False, verbose=True)
         transcription = result['text']
@@ -33,9 +36,6 @@ def transcribe():
         # Prepare filename for saving transcription
         filename_no_ext = os.path.splitext(file.filename)[0]
         output_filepath = os.path.join(output_folder, filename_no_ext + '.txt')
-        
-        # Ensure the output directory exists
-        os.makedirs(output_folder, exist_ok=True)
         
         # Save transcription to a text file
         with open(output_filepath, 'w', encoding='utf-8') as f:
@@ -49,9 +49,10 @@ def transcribe():
     
     finally:
         # Clean up the temporary file
-        if os.path.exists(temp_path):
+        if temp_path and os.path.exists(temp_path):
             os.remove(temp_path)
 
 if __name__ == '__main__':
     app.config['UPLOAD_FOLDER'] = 'temp'  # Define your upload folder
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)  # Ensure the temp folder exists
     app.run(debug=True)
